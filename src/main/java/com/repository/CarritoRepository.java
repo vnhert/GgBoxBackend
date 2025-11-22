@@ -1,5 +1,18 @@
 package com.repository;
 
-public class CarritoRepository {
+import com.model.Carrito;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface CarritoRepository extends JpaRepository<Carrito, Long> {
+    
+    
+    Optional<Carrito> findByUserId(Long userId);
 }
+
+
+

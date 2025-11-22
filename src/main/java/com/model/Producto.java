@@ -1,15 +1,13 @@
 package com.model;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal; 
+import java.math.BigDecimal;
 import java.util.Objects;
-
 
 @Entity
 @Table(name = "producto")
 public class Producto {
 
-   
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,7 +18,6 @@ public class Producto {
     @Column(columnDefinition = "TEXT") 
     private String descripcion;
 
-   
     @Column(nullable = false)
     private BigDecimal precio;
 
@@ -29,8 +26,12 @@ public class Producto {
 
     private String urlImagen; 
     
+   
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoria_id", nullable = false) 
+    private CategoriaProducto categoria; 
 
-    
+  
     public Producto() {
     }
 
@@ -88,7 +89,15 @@ public class Producto {
         this.urlImagen = urlImagen;
     }
 
-  
+   
+    public CategoriaProducto getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(CategoriaProducto categoria) {
+        this.categoria = categoria;
+    }
+   
 
     @Override
     public String toString() {
@@ -97,6 +106,8 @@ public class Producto {
                 ", nombre='" + nombre + '\'' +
                 ", precio=" + precio +
                 ", stock=" + stock +
+                
+                ", categoria=" + (categoria != null ? categoria.getNombre() : "N/A") +
                 '}';
     }
 

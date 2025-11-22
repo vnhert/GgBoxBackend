@@ -1,4 +1,5 @@
 package com.controller;
+
 import com.model.Producto;
 import com.service.ProductoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +17,7 @@ public class ProductoController {
     @Autowired
     private ProductoService productoService;
 
-   
+    
     @GetMapping
     public List<Producto> getAllProductos() {
         return productoService.getAllProductos();
@@ -32,10 +33,17 @@ public class ProductoController {
     }
 
     
+    /**
+     * Crea un nuevo producto, esperando el ID de la Categoría como parámetro de consulta.
+     * 
+     */
     @PostMapping
-    public ResponseEntity<?> createProducto(@RequestBody Producto producto) {
+    public ResponseEntity<?> createProducto(
+            @RequestBody Producto producto,
+            @RequestParam Long categoriaId) { // Recibe el ID de la Categoría
         try {
-            Producto nuevoProducto = productoService.saveProducto(producto);
+            // Llama al servicio con el producto y el ID de la categoría
+            Producto nuevoProducto = productoService.saveProducto(producto, categoriaId);
             
             return new ResponseEntity<>(nuevoProducto, HttpStatus.CREATED); 
         } catch (IllegalArgumentException e) {
@@ -44,15 +52,23 @@ public class ProductoController {
         }
     }
 
-   
+    
+    /**
+     * Actualiza un producto existente, esperando el ID de la Categoría como parámetro de consulta.
+     * Si no se proporciona categoriaId, intenta usar el ID que ya tiene el producto (si viene en el body).
+     */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateProducto(@PathVariable Long id, @RequestBody Producto productoDetails) {
+    public ResponseEntity<?> updateProducto(
+            @PathVariable Long id, 
+            @RequestBody Producto productoDetails,
+            @RequestParam(required = false) Long categoriaId) { // Recibe el ID de la Categoría (opcional)
+        
         Optional<Producto> productoOptional = productoService.getProductoById(id);
 
         if (productoOptional.isPresent()) {
             Producto productoExistente = productoOptional.get();
 
-            
+            // 1. Actualizar campos básicos
             productoExistente.setNombre(productoDetails.getNombre());
             productoExistente.setDescripcion(productoDetails.getDescripcion());
             productoExistente.setPrecio(productoDetails.getPrecio());
@@ -60,8 +76,21 @@ public class ProductoController {
             productoExistente.setUrlImagen(productoDetails.getUrlImagen());
             
             try {
+                // 2. Determinar qué ID de Categoría usar:
+                Long finalCategoriaId = categoriaId;
                 
-                Producto productoActualizado = productoService.saveProducto(productoExistente);
+                // Si no se pasó el ID en el RequestParam, usamos el ID que ya tiene la entidad persistida.
+                if (finalCategoriaId == null) {
+                   if (productoExistente.getCategoria() != null) {
+                       finalCategoriaId = productoExistente.getCategoria().getId();
+                   } else {
+                       // Si la categoría es nula y no se pasó ID, forzamos un error de validación
+                       throw new IllegalArgumentException("Debe proporcionar un ID de categoría para la actualización.");
+                   }
+                }
+                
+                // 3. Guardar el producto, delegando la búsqueda de la Categoría al Service
+                Producto productoActualizado = productoService.saveProducto(productoExistente, finalCategoriaId);
                 return ResponseEntity.ok(productoActualizado);
             } catch (IllegalArgumentException e) {
                 return ResponseEntity.badRequest().body("Error de validación: " + e.getMessage());

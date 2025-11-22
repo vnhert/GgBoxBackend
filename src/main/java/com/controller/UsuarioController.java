@@ -1,67 +1,82 @@
 package com.controller;
 
-import com.model.Usuario;
-import com.service.UsuarioService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.model.Usuario; 
+import com.service.UsuarioService; 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Controlador REST para la gestión de la entidad Usuario.
- * Mapeado a la ruta base /api/usuarios.
- */
+
 @RestController
 @RequestMapping("/api/usuarios")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    public UsuarioController(UsuarioService usuarioService) {
+    
+    public UsuarioController(UsuarioService usuarioService, PasswordEncoder passwordEncoder) {
         this.usuarioService = usuarioService;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // Endpoint: POST /api/usuarios (Crear nuevo usuario/Registro)
-    @PostMapping
-    public ResponseEntity<Usuario> createUsuario(@RequestBody Usuario usuario) {
-        // En una aplicación real, aquí se debe encriptar la contraseña antes de llamar a save.
-        Usuario nuevoUsuario = usuarioService.save(usuario);
-        // Devuelve el usuario creado con el código de estado 201 CREATED
-        return new ResponseEntity<>(nuevoUsuario, HttpStatus.CREATED);
-    }
-
-    // Endpoint: GET /api/usuarios/{id} (Leer un usuario por ID)
-    @GetMapping("/{id}")
-    public ResponseEntity<Usuario> getUsuarioById(@PathVariable Long id) {
-        Optional<Usuario> usuario = usuarioService.findById(id);
-        // Si el usuario existe, devuelve 200 OK con el objeto. Si no, devuelve 404 NOT FOUND.
-        return usuario.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
-                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    /** * Verifica si el usuario autenticado tiene el rol de ADMIN. 
+     */
+    private boolean isAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals(Usuario.Role.ROLE_ADMIN.name())); 
     }
 
     // Endpoint: GET /api/usuarios (Leer todos los usuarios)
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Usuario>> getAllUsuarios() {
         List<Usuario> usuarios = usuarioService.findAll();
         return new ResponseEntity<>(usuarios, HttpStatus.OK);
     }
 
+   
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
+    public ResponseEntity<Usuario> getUsuarioById(@PathVariable Long id) {
+        Optional<Usuario> usuario = usuarioService.findById(id);
+        return usuario.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
+                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+    
     // Endpoint: PUT /api/usuarios/{id} (Actualizar un usuario)
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
     public ResponseEntity<Usuario> updateUsuario(@PathVariable Long id, @RequestBody Usuario usuarioDetails) {
         Optional<Usuario> optionalUsuario = usuarioService.findById(id);
 
         if (optionalUsuario.isPresent()) {
             Usuario usuarioExistente = optionalUsuario.get();
             
-            // Actualizar solo los campos que se pueden modificar (ej: nombre, email, etc.)
-            usuarioExistente.setNombre(usuarioDetails.getNombre());
-            usuarioExistente.setEmail(usuarioDetails.getEmail());
-            // Nota: La contraseña debe manejarse con un endpoint separado para mayor seguridad.
+           
+            if (usuarioDetails.getNombre() != null) {
+                usuarioExistente.setNombre(usuarioDetails.getNombre());
+            }
+            if (usuarioDetails.getEmail() != null) {
+                 usuarioExistente.setEmail(usuarioDetails.getEmail());
+            }
+
+            if (usuarioDetails.getRole() != null && isAdmin()) {
+                usuarioExistente.setRole(usuarioDetails.getRole());
+            }
+            
+           
+            if (usuarioDetails.getPassword() != null && !usuarioDetails.getPassword().isEmpty()) {
+                usuarioExistente.setPassword(passwordEncoder.encode(usuarioDetails.getPassword()));
+            }
 
             Usuario usuarioActualizado = usuarioService.save(usuarioExistente);
             return new ResponseEntity<>(usuarioActualizado, HttpStatus.OK);
@@ -72,14 +87,14 @@ public class UsuarioController {
 
     // Endpoint: DELETE /api/usuarios/{id} (Eliminar un usuario)
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<HttpStatus> deleteUsuario(@PathVariable Long id) {
         try {
             usuarioService.deleteById(id);
-            // Devuelve 204 NO CONTENT si la eliminación fue exitosa
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         } catch (Exception e) {
-            // Manejo de errores si el ID no existe o hay restricciones de FK
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-}
+
+    } 
