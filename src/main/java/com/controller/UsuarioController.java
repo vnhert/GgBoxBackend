@@ -35,6 +35,40 @@ public class UsuarioController {
             .anyMatch(a -> a.getAuthority().equals(Usuario.Role.ROLE_ADMIN.name())); 
     }
 
+    
+    // NUEVO ENDPOINT: POST /api/usuarios (Registro de nuevo usuario)
+    // Este endpoint debe ser accesible sin autenticación (PUBLIC)
+    
+    @PostMapping
+    
+    public ResponseEntity<?> registerUsuario(@RequestBody Usuario nuevoUsuario) {
+        // 1. Verificar si el email ya existe
+        if (usuarioService.findByEmail(nuevoUsuario.getEmail()) != null) {
+            return new ResponseEntity<>("El email ya está registrado.", HttpStatus.CONFLICT); // 409 Conflict
+        }
+
+        // 2. Codificar la contraseña
+        String encodedPassword = passwordEncoder.encode(nuevoUsuario.getPassword());
+        nuevoUsuario.setPassword(encodedPassword);
+
+        // 3. Asignar rol por defecto (ROLE_USER)
+        // Se asume que tu modelo Usuario tiene un enum o campo para el rol.
+        // Si tu modelo Usuario no tiene el Role, esta línea debe ser modificada o eliminada.
+        try {
+             nuevoUsuario.setRole(Usuario.Role.ROLE_CLIENTE);
+        } catch (Exception e) {
+            // Manejo de error si setRole no existe o falla (dejar solo si estás seguro del modelo)
+            System.err.println("Advertencia: No se pudo establecer el rol. Asegúrate que Usuario.java tiene setRole(Usuario.Role).");
+        }
+
+
+        // 4. Guardar el nuevo usuario
+        Usuario usuarioGuardado = usuarioService.save(nuevoUsuario);
+        
+        // Retornamos el usuario creado con status 201
+        return new ResponseEntity<>(usuarioGuardado, HttpStatus.CREATED);
+    }
+    
     // Endpoint: GET /api/usuarios (Leer todos los usuarios)
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -43,7 +77,7 @@ public class UsuarioController {
         return new ResponseEntity<>(usuarios, HttpStatus.OK);
     }
 
-   
+    
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
     public ResponseEntity<Usuario> getUsuarioById(@PathVariable Long id) {
@@ -61,7 +95,7 @@ public class UsuarioController {
         if (optionalUsuario.isPresent()) {
             Usuario usuarioExistente = optionalUsuario.get();
             
-           
+            
             if (usuarioDetails.getNombre() != null) {
                 usuarioExistente.setNombre(usuarioDetails.getNombre());
             }
@@ -73,7 +107,7 @@ public class UsuarioController {
                 usuarioExistente.setRole(usuarioDetails.getRole());
             }
             
-           
+            
             if (usuarioDetails.getPassword() != null && !usuarioDetails.getPassword().isEmpty()) {
                 usuarioExistente.setPassword(passwordEncoder.encode(usuarioDetails.getPassword()));
             }
@@ -97,4 +131,4 @@ public class UsuarioController {
         }
     }
 
-    } 
+}

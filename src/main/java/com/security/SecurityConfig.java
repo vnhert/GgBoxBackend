@@ -32,12 +32,12 @@ public class SecurityConfig {
 
     private final UsuarioService usuarioService; 
     
-    // CORRECCIÓN: Inyectamos como la interfaz AuthenticationEntryPoint
+   
     private final AuthenticationEntryPoint unauthorizedHandler; 
     
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    // Inyección de dependencias
+    
     public SecurityConfig(UsuarioService usuarioService, 
                           AuthenticationEntryPoint unauthorizedHandler, // Usamos la interfaz aquí
                           JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -52,15 +52,15 @@ public class SecurityConfig {
     }
 
     /**
-     * Define el proveedor de autenticación que usa tu UsuarioService 
+     * Define el proveedor de autenticación que usa el UsuarioService 
      * y el PasswordEncoder.
      */
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        // El constructor sin argumentos funciona correctamente si tienes las dependencias de Spring Security.
+       
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         
-        // setUserDetailsService acepta tu UsuarioService porque implementa UserDetailsService.
+       
         authProvider.setUserDetailsService(usuarioService); 
         
         authProvider.setPasswordEncoder(passwordEncoder());
