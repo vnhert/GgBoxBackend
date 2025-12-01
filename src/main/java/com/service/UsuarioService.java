@@ -1,81 +1,68 @@
 package com.service;
-
-import com.model.Usuario; 
-import com.model.Usuario.Role; 
-import com.repository.UsuarioRepository; 
+import com.model.Usuario;
+import com.model.Role;
+import com.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.Optional;
 
 @Service
-public class UsuarioService implements UserDetailsService {
+public class UsuarioService implements UserDetailsService { 
 
-	private final UsuarioRepository usuarioRepository;
-	private final PasswordEncoder passwordEncoder; 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
-	public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
-		this.usuarioRepository = usuarioRepository;
-		this.passwordEncoder = passwordEncoder;
-	}
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
-	
-	@Override
-	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-		Usuario usuario = usuarioRepository.findByEmail(email);
-		
-		if (usuario == null) {
-			throw new UsernameNotFoundException("Usuario no encontrado con email: " + email);
-		}
-		
-		return usuario;
-	}
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        Optional<Usuario> userOptional = usuarioRepository.findByUsername(username);
 
-	/**
-	 * Registra un nuevo usuario, asegurando que la contraseña se guarde encriptada.
-	 */
-	@Transactional
-	public Usuario registrarNuevoUsuario(Usuario usuario) {
-		if (usuarioRepository.existsByEmail(usuario.getEmail())) {
-			throw new RuntimeException("Error: El correo electrónico ya está registrado.");
-		}
-		
-		// Encriptación de Contraseña (IE3.3.1)
-		String hashedPassword = passwordEncoder.encode(usuario.getPassword());
-		usuario.setPassword(hashedPassword);
+        if (userOptional.isEmpty()) {
+            throw new UsernameNotFoundException("Usuario no encontrado con username: " + username);
+        }
 
-		// Asignar Role por defecto si es necesario
-		if (usuario.getRole() == null) {
-			 usuario.setRole(Role.ROLE_CLIENTE); 
-		}
+        Usuario user = userOptional.get();
 
-		return usuarioRepository.save(usuario);
-	}
-	
-	// --- Métodos de CRUD Estándar ---
-	
-	public Usuario save(Usuario usuario) {
-		return usuarioRepository.save(usuario);
-	}
+        GrantedAuthority authority = new SimpleGrantedAuthority(user.getRole().name());
 
-	public Optional<Usuario> findById(Long id) {
-		return usuarioRepository.findById(id);
-	}
-	
-	public Usuario findByEmail(String email) {
-		return usuarioRepository.findByEmail(email); 
-	}
+        return new org.springframework.security.core.userdetails.User(
+                user.getUsername(),
+                user.getPassword(), // Contraseña de la DB
+                Collections.singletonList(authority));
+    }
 
-	public List<Usuario> findAll() {
-		return usuarioRepository.findAll();
-	}
+   
+    public Usuario registrarNuevoUsuario(String username, String rawPassword) {
+        if (usuarioRepository.findByUsername(username).isPresent()) {
+            throw new RuntimeException("El nombre de usuario ya existe.");
+        }
 
-	public void deleteById(Long id) {
-		usuarioRepository.deleteById(id);
-	}
+        Usuario newUser = new Usuario();
+        newUser.setUsername(username);
+        newUser.setPassword(passwordEncoder.encode(rawPassword));
+        newUser.setRole(Role.USER); // Rol por defecto (ajustado a la nueva estructura)
+
+        return usuarioRepository.save(newUser);
+    }
+
+    public void createAdminUserIfNotExists() {
+        if (usuarioRepository.findByUsername("admin").isEmpty()) {
+            Usuario admin = new Usuario();
+            admin.setUsername("admin");
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setRole(Role.ADMIN); // Rol ADMIN (ajustado a la nueva estructura)
+            usuarioRepository.save(admin);
+            System.out.println("Usuario ADMIN inicial creado con password 'admin123'.");
+        }
+    }
 }

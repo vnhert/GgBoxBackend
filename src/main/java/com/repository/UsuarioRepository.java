@@ -2,6 +2,7 @@ package com.repository;
 
 import com.model.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional; 
 import org.springframework.stereotype.Repository;
 
 
@@ -9,7 +10,11 @@ import org.springframework.stereotype.Repository;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
    
-    Usuario findByEmail(String email);
-    boolean existsByEmail(String email);
-    
+/**
+     * Busca al usuario por su nombre de usuario (el username)
+     * Metodo crucial para el login y la validación de jwt
+     * * @param username es el nombre de usuario a buscar (debe ser unico)
+     * @return es un objeto Optional que contiene el User si existe
+     */
+    Optional<Usuario> findByUsername(String username);
 }
