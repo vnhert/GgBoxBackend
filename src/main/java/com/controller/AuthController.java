@@ -20,7 +20,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://[IP PUBLICA O EL DOMINIO]") 
+@CrossOrigin(origins = "http://localhost:3000") 
 public class AuthController {
 
     @Autowired
@@ -57,8 +57,10 @@ public class AuthController {
         try {
             // rol por defecto es USER: se maneja en UserService
             Usuario newUser = usuarioService.registrarNuevoUsuario(
+                    request.get("email"),
                     request.get("username"),
                     request.get("password")
+                    
                    
                     
             );
@@ -92,3 +94,4 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(jwt, userDetails.getUsername(), role));
     }
 }
+
