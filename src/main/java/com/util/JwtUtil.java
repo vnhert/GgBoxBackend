@@ -91,4 +91,8 @@ public class JwtUtil {
         final Date expiration = getExpirationDateFromToken(token);
         return expiration.before(new Date());
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> a6bff63c8c0876a65c862130b162a65031d70a74

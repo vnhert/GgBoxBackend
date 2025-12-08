@@ -64,4 +64,8 @@ public class Usuario {
     public void setRole(Role role) {
         this.role = role;
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> a6bff63c8c0876a65c862130b162a65031d70a74
