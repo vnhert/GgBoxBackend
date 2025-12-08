@@ -1,72 +1,65 @@
 package com.service;
-
-import com.model.Usuario; 
-import com.repository.UsuarioRepository; 
+import com.model.Usuario;
+import com.model.Role;
+import com.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.Optional;
 
 @Service
-public class UsuarioService implements UserDetailsService {
+public class UsuarioService implements UserDetailsService { 
 
-    private final UsuarioRepository usuarioRepository;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
-    // Inyección de dependencia
-    public UsuarioService(UsuarioRepository usuarioRepository) {
-        this.usuarioRepository = usuarioRepository;
-    }
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
-    
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // 1. Buscar la entidad Usuario por email. Se asume que retorna Usuario (o null).
-        Usuario usuario = usuarioRepository.findByEmail(email);
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+        Usuario usuario = usuarioRepository.findByEmail(usernameOrEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con el email: " + usernameOrEmail));
+    
         
-        // 2. Verificar si el resultado es null y lanzar la excepción de Spring Security si es necesario.
-        if (usuario == null) {
-            throw new UsernameNotFoundException("Usuario no encontrado con email: " + email);
-        }
-        
-        // 3. Retornar la entidad Usuario.
-        return usuario;
+        return new org.springframework.security.core.userdetails.User(
+                usuario.getUsername(),
+                usuario.getPassword(), // ContraseÃ±a de la DB
+                Collections.singletonList(new SimpleGrantedAuthority(usuario.getRole().name()))
+        );
     }
 
    
-    /**
-     * Guarda o actualiza un usuario en la base de datos.
-     */
-    public Usuario save(Usuario usuario) {
-        return usuarioRepository.save(usuario);
+    public Usuario registrarNuevoUsuario(String email,String username, String rawPassword) {
+        if (usuarioRepository.findByUsername(username).isPresent()) {
+            throw new RuntimeException("El nombre de usuario ya existe.");
+        }
+
+        Usuario newUser = new Usuario();
+        newUser.setEmail(email);
+        newUser.setUsername(username);
+        newUser.setPassword(passwordEncoder.encode(rawPassword));
+        newUser.setRole(Role.USER); // Rol por defecto (ajustado a la nueva estructura)
+
+        return usuarioRepository.save(newUser);
     }
 
-    /**
-     * Busca un usuario por su ID.
-     * 
-     */
-    public Optional<Usuario> findById(Long id) {
-        return usuarioRepository.findById(id);
-    }
-    
-    
-    public Usuario findByEmail(String email) {
-        return usuarioRepository.findByEmail(email); 
-    }
-
-    /**
-     * Obtiene la lista de todos los usuarios.
-     */
-    public List<Usuario> findAll() {
-        return usuarioRepository.findAll();
-    }
-
-    /**
-     * Elimina un usuario por su ID.
-     */
-    public void deleteById(Long id) {
-        usuarioRepository.deleteById(id);
+    public void createAdminUserIfNotExists() {
+        if (usuarioRepository.findByUsername("admin").isEmpty()) {
+            Usuario admin = new Usuario();
+            admin.setEmail("admin@hola.com");  
+            admin.setUsername("admin");
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setRole(Role.ADMIN); // Rol ADMIN (ajustado a la nueva estructura)
+            usuarioRepository.save(admin);
+            System.out.println("Usuario ADMIN inicial creado con password 'admin123'.");
+        }
     }
 }
