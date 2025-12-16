@@ -19,7 +19,7 @@ public class AdminSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        String adminEmail = "admin@ritmolab.cl";
+        String adminEmail = "admin@ggbox.cl";
         String adminPass = "Admin123!";
 
         if (!usuarioRepository.existsByEmail(adminEmail)) {
