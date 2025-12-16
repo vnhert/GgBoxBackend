@@ -1,123 +1,123 @@
 package com.service;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import com.model.Carrito;
 import com.model.ItemCarrito;
 import com.model.Producto;
-import com.repository.CarritoRepository;
+import com.model.Usuario;
 import com.repository.ItemCarritoRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Optional;
-
+import com.repository.CarritoRepository;
+import com.repository.ProductoRepository;
+import com.repository.UsuarioRepository;
 
 @Service
 public class CarritoService {
 
-    @Autowired
-    private CarritoRepository carritoRepository;
+    private final CarritoRepository carritoRepository;
+    private final ItemCarritoRepository carritoItemRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final ProductoRepository productoRepository;
 
-    @Autowired
-    private ItemCarritoRepository itemCarritoRepository;
-
-    @Autowired
-    private ProductoService productoService; 
-
-    /**
-     * Obtiene el carrito del usuario. Si no existe, crea uno nuevo.
-     * @param userId 
-     * @return 
-     */
-    public Carrito getCarritoByUserId(Long userId) {
-        
-        return carritoRepository.findByUserId(userId).orElseGet(() -> {
-            
-            Carrito nuevoCarrito = new Carrito();
-            nuevoCarrito.setUserId(userId);
-            return carritoRepository.save(nuevoCarrito);
-        });
+    public CarritoService(CarritoRepository carritoRepository,
+                          ItemCarritoRepository carritoItemRepository,
+                          UsuarioRepository usuarioRepository,
+                          ProductoRepository productoRepository) {
+        this.carritoRepository = carritoRepository;
+        this.carritoItemRepository = carritoItemRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.productoRepository = productoRepository;
     }
 
-    /**
-     * Añade un producto al carrito. Si el ítem ya existe, aumenta la cantidad.
-     * @param userId 
-     * @param productoId 
-     * @param cantidad
-     * @return 
-     */
-    @Transactional
-    public Carrito addProductoToCarrito(Long userId, Long productoId, int cantidad) {
-        if (cantidad <= 0) {
-            throw new IllegalArgumentException("La cantidad debe ser mayor que cero.");
+    // obtener el carrito de un usuario (si no existe, se crea vacio)
+    public Carrito getOrCreateCart(Long usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+
+        return carritoRepository.findByUserId(usuarioId)
+                .orElseGet(() -> {
+                    Carrito nuevo = new Carrito();
+                    nuevo.setUsuario(usuario);
+                    return carritoRepository.save(nuevo);
+                });
+    }
+
+    // agregar producto al carrito
+    public Carrito addItem(Long usuarioId, Long productoId, Integer cantidad) {
+        if (cantidad == null || cantidad <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La cantidad debe ser mayor a 0");
         }
 
-        Carrito carrito = getCarritoByUserId(userId);
-        Optional<Producto> productoOpt = productoService.getProductoById(productoId);
+        Carrito carrito = getOrCreateCart(usuarioId);
 
-        if (!productoOpt.isPresent()) {
-            throw new RuntimeException("Producto no encontrado con ID: " + productoId);
-        }
-        Producto producto = productoOpt.get();
+        Producto producto = productoRepository.findById(productoId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Producto no encontrado"));
 
-        Optional<ItemCarrito> existingItemOpt = itemCarritoRepository.findByCarritoIdAndProductoId(carrito.getId(), productoId);
+        // valida si existe item con ese producto
+        Optional<ItemCarrito> existenteOpt = carrito.getItems().stream()
+                .filter(i -> i.getProducto().getId().equals(productoId))
+                .findFirst();
 
-        if (existingItemOpt.isPresent()) {
-            
-            ItemCarrito existingItem = existingItemOpt.get();
-            existingItem.setCantidad(existingItem.getCantidad() + cantidad);
-            itemCarritoRepository.save(existingItem);
+        if (existenteOpt.isPresent()) {
+            ItemCarrito existente = existenteOpt.get();
+            existente.setCantidad(existente.getCantidad() + cantidad);
+            carritoItemRepository.save(existente);
         } else {
-            
-            ItemCarrito newItem = new ItemCarrito();
-            newItem.setProducto(producto);
-            newItem.setCantidad(cantidad);
-           
-            carrito.addItem(newItem); 
-            itemCarritoRepository.save(newItem);
+            ItemCarrito item = new ItemCarrito();
+            item.setCarrito(carrito);
+            item.setProducto(producto);
+            item.setCantidad(cantidad);
+            carrito.getItems().add(item);
+            carritoItemRepository.save(item);
         }
 
         return carritoRepository.save(carrito);
     }
-    
-    /**
-     * Elimina completamente un producto del carrito.
-     * @param userId
-     * @param productoId 
-     * @return 
-     */
-    @Transactional
-    public Carrito removeProductoFromCarrito(Long userId, Long productoId) {
-        Carrito carrito = getCarritoByUserId(userId);
 
-        
-        Optional<ItemCarrito> itemToRemoveOpt = itemCarritoRepository.findByCarritoIdAndProductoId(carrito.getId(), productoId);
-
-        if (itemToRemoveOpt.isPresent()) {
-            ItemCarrito itemToRemove = itemToRemoveOpt.get();
-            
-            
-            carrito.removeItem(itemToRemove);
-            itemCarritoRepository.delete(itemToRemove);
-            
-            return carritoRepository.save(carrito);
-        } else {
-            
-            return carrito;
+    public Carrito updateItemQuantity(Long usuarioId, Long itemId, Integer cantidad) {
+        if (cantidad == null || cantidad <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La cantidad debe ser mayor a 0");
         }
-    }
-    
-  
 
-    /**
-     * Guarda o actualiza un objeto Carrito. 
-     * E
-     * @param carrito 
-     * @return 
-     */
-    @Transactional
-    public Carrito saveCarrito(Carrito carrito) {
-        
+        Carrito carrito = getOrCreateCart(usuarioId);
+
+        ItemCarrito item = carrito.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Item no encontrado en el carrito"));
+
+        item.setCantidad(cantidad);
+        carritoItemRepository.save(item);
+
+        return carrito;
+    }
+
+    public Carrito removeItem(Long usuarioId, Long itemId) {
+        Carrito carrito = getOrCreateCart(usuarioId);
+
+        ItemCarrito item = carrito.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Item no encontrado en el carrito"));
+
+        carrito.getItems().remove(item);
+        carritoItemRepository.delete(item);
+
+        return carrito;
+    }
+
+    public Carrito clearCart(Long usuarioId) {
+        Carrito carrito = getOrCreateCart(usuarioId);
+        carritoItemRepository.deleteAll(carrito.getItems());
+        carrito.getItems().clear();
         return carritoRepository.save(carrito);
     }
 }

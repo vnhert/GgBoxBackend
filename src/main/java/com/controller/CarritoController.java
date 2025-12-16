@@ -1,67 +1,55 @@
 package com.controller;
 
+import org.springframework.web.bind.annotation.*;
 import com.model.Carrito;
 import com.service.CarritoService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api/carrito/{userId}")
+@RequestMapping("/api/carritos")
+@CrossOrigin(origins = {
+        "http://3.227.171.106",
+        "http://localhost:5173"
+})
 public class CarritoController {
 
-    @Autowired
-    private CarritoService carritoService;
+    private final CarritoService carritoService;
 
-   
-    @GetMapping
-    public Carrito getCarrito(@PathVariable Long userId) {
-       
-        return carritoService.getCarritoByUserId(userId);
+    public CarritoController(CarritoService carritoService) {
+        this.carritoService = carritoService;
     }
 
-    
-    @PostMapping("/add")
-    public ResponseEntity<?> addProducto(
-            @PathVariable Long userId,
-            @RequestBody Map<String, Object> payload) {
-        
-        try {
-            Long productoId = ((Number) payload.get("productoId")).longValue();
-            Integer cantidad = (Integer) payload.getOrDefault("cantidad", 1);
-            
-            Carrito carritoActualizado = carritoService.addProductoToCarrito(userId, productoId, cantidad);
-            return ResponseEntity.ok(carritoActualizado);
-            
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Error de validación: " + e.getMessage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Error: " + e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al añadir producto: " + e.getMessage());
-        }
-    }
-    
-    
-    @DeleteMapping("/remove/{productoId}")
-    public Carrito removeProducto(
-            @PathVariable Long userId,
-            @PathVariable Long productoId) {
-        
-        return carritoService.removeProductoFromCarrito(userId, productoId);
+    // GET obtener carrito de un usuario (se crea vacío si no existe)
+    @GetMapping("/usuario/{usuarioId}")
+    public Carrito getCarritoByUsuario(@PathVariable Long usuarioId) {
+        return carritoService.getOrCreateCart(usuarioId);
     }
 
-    
-    @GetMapping("/total")
-    public ResponseEntity<Map<String, Object>> getCarritoTotal(@PathVariable Long userId) {
-        Carrito carrito = carritoService.getCarritoByUserId(userId);
-        
-        return ResponseEntity.ok(Map.of(
-            "userId", carrito.getUserId(),
-            "total", carrito.getTotal()
-        ));
+    // POST agregar producto al carrito
+    @PostMapping("/usuario/{usuarioId}/items")
+    public Carrito addItem(@PathVariable Long usuarioId,
+                           @RequestParam Long productoId,
+                           @RequestParam Integer cantidad) {
+        return carritoService.addItem(usuarioId, productoId, cantidad);
+    }
+
+    // PUT actualizar cantidad de un item
+    @PutMapping("/usuario/{usuarioId}/items/{itemId}")
+    public Carrito updateItemQuantity(@PathVariable Long usuarioId,
+                                      @PathVariable Long itemId,
+                                      @RequestParam Integer cantidad) {
+        return carritoService.updateItemQuantity(usuarioId, itemId, cantidad);
+    }
+
+    // DELETE eliminar un item del carrito
+    @DeleteMapping("/usuario/{usuarioId}/items/{itemId}")
+    public Carrito removeItem(@PathVariable Long usuarioId,
+                              @PathVariable Long itemId) {
+        return carritoService.removeItem(usuarioId, itemId);
+    }
+
+    // DELETE vaciar carrito
+    @DeleteMapping("/usuario/{usuarioId}/items")
+    public Carrito clearCart(@PathVariable Long usuarioId) {
+        return carritoService.clearCart(usuarioId);
     }
 }

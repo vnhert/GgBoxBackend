@@ -1,71 +1,47 @@
 package com.model;
 
-import jakarta.persistence.*; 
+import jakarta.persistence.*;
 
-import lombok.NoArgsConstructor;
-
-@NoArgsConstructor 
 @Entity
-@Table(name = "users")
+@Table(name = "usuarios")
 public class Usuario {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    private String nombre;
+
+    @Column(unique = true)
     private String email;
 
-    @Column(unique = true, nullable = false)
-    private String username; 
-
-    @Column(nullable = false)
-    private String password; 
+    private String password;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role; 
+    private Role rol;   // es admin o cliente
 
+    public Usuario() {}
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
+    public Usuario(Long id, String nombre, String email, String password, Role rol) {
         this.id = id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-    public String getEmail() {
-         return email; 
-    }
-    public void setEmail(String email) { 
-        this.email = email; 
-    }
-
-    public void setPassword(String password) {
+        this.nombre = nombre;
+        this.email = email;
         this.password = password;
+        this.rol = rol;
     }
 
-    public Role getRole() {
-        return role;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setRole(Role role) {
-        this.role = role;
-    }
-<<<<<<< HEAD
+    public String getNombre() { return nombre; }
+    public void setNombre(String nombre) { this.nombre = nombre; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public Role getRol() { return rol; }
+    public void setRol(Role rol) { this.rol = rol; }
 }
-=======
-}
->>>>>>> a6bff63c8c0876a65c862130b162a65031d70a74

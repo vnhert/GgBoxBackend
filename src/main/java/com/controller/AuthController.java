@@ -1,101 +1,78 @@
 package com.controller;
 
-import com.model.Usuario; 
-import com.service.UsuarioService;
-import com.util.JwtUtil; 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails; 
+
 import org.springframework.web.bind.annotation.*;
+import com.model.Usuario;
+import com.repository.UsuarioRepository;    
+import com.security.JwtService;
+import com.dto.LoginRequest;
+import com.dto.LoginResponse;
+import com.dto.MeResponse;
 
-import java.util.Map;
+import java.security.Principal;
 
-/**
- * Controlador REST para manejar la autenticación de usuarios (registro y login).
- *
- * NOTA: La anotación @CrossOrigin debe apuntar a la IP o dominio del frontend.
- */
 @RestController
 @RequestMapping("/api/auth")
-<<<<<<< HEAD
-@CrossOrigin(origins = "https://98.94.92.251/") 
-=======
-@CrossOrigin(origins = "http://localhost:3000") 
->>>>>>> a6bff63c8c0876a65c862130b162a65031d70a74
+@CrossOrigin(origins = {
+        "http://3.227.171.106",
+        "http://localhost:5173"
+})
 public class AuthController {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+    private final UsuarioRepository usuarioRepository;
 
-    @Autowired
-    private UsuarioService usuarioService;
-
-    @Autowired
-    private JwtUtil jwtUtil; // Reemplaza JwtUtil por JwtTokenProvider
-
-    /**
-     * Objeto de respuesta para el login.
-     * Es crucial para que el frontend reciba el JWT, el email y el rol.
-     */
-    public static class AuthResponse {
-        public String jwt;
-        public String username; // Usamos email como username
-        public String role;
-        
-        public AuthResponse(String jwt, String username, String role) {
-            this.jwt = jwt;
-            this.username = username;
-            this.role = role;
-        }
+    public AuthController(AuthenticationManager authenticationManager,
+                          JwtService jwtService,
+                          UsuarioRepository usuarioRepository) {
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
+        this.usuarioRepository = usuarioRepository;
     }
 
-    /**
-     * Endpoint de Registro (POST /api/auth/register).
-     * Registra un nuevo usuario con rol por defecto (ej. ROLE_CLIENTE).
-     */
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
-        try {
-            // rol por defecto es USER: se maneja en UserService
-            Usuario newUser = usuarioService.registrarNuevoUsuario(
-                    request.get("email"),
-                    request.get("username"),
-                    request.get("password")
-                    
-                   
-                    
-            );
-            return ResponseEntity.ok("Usuario registrado exitosamente como: " + newUser.getRole().name());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    /**
-     * Endpoint de Login (POST /api/auth/login).
-     * Autentica al usuario y genera el token JWT.
-     */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
-        
-    
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
 
-      
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.get("username"), request.get("password"))
+        Authentication auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
-       
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal(); 
-       
-        String role = userDetails.getAuthorities().iterator().next().getAuthority();
-        
-      
-        final String jwt = jwtUtil.generateToken(userDetails, role);
 
-        return ResponseEntity.ok(new AuthResponse(jwt, userDetails.getUsername(), role));
+        String token = jwtService.generateToken(
+                (org.springframework.security.core.userdetails.UserDetails) auth.getPrincipal()
+        );
+
+        Usuario u = usuarioRepository.findByEmail(request.getEmail()).orElseThrow();
+
+        LoginResponse resp = new LoginResponse(
+                token,
+                u.getId(),
+                u.getNombre(),
+                u.getEmail(),
+                "ROLE_" + u.getRol().name()
+        );
+
+        return ResponseEntity.ok(resp);
+    }
+
+    // /api/auth/me (PROTEGIDO)
+    @GetMapping("/me")
+    public ResponseEntity<?> me(Principal principal) {
+        String email = principal.getName(); // viene desde el SecurityContext (JWT)
+        Usuario u = usuarioRepository.findByEmail(email).orElseThrow();
+
+        return ResponseEntity.ok(new MeResponse(
+                u.getId(),
+                u.getNombre(),
+                u.getEmail(),
+                "ROLE_" + u.getRol().name()
+        ));
     }
 }
+
 

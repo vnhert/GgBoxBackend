@@ -1,65 +1,58 @@
 package com.service;
+import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.model.Usuario;
 import com.model.Role;
 import com.repository.UsuarioRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
-import java.util.Collections;
-import java.util.Optional;
+import java.util.List;
 
 @Service
-public class UsuarioService implements UserDetailsService { 
+public class UsuarioService {
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Override
-    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
-        Usuario usuario = usuarioRepository.findByEmail(usernameOrEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con el email: " + usernameOrEmail));
-    
-        
-        return new org.springframework.security.core.userdetails.User(
-                usuario.getUsername(),
-                usuario.getPassword(), // ContraseÃ±a de la DB
-                Collections.singletonList(new SimpleGrantedAuthority(usuario.getRole().name()))
-        );
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-   
-    public Usuario registrarNuevoUsuario(String email,String username, String rawPassword) {
-        if (usuarioRepository.findByUsername(username).isPresent()) {
-            throw new RuntimeException("El nombre de usuario ya existe.");
-        }
-
-        Usuario newUser = new Usuario();
-        newUser.setEmail(email);
-        newUser.setUsername(username);
-        newUser.setPassword(passwordEncoder.encode(rawPassword));
-        newUser.setRole(Role.USER); // Rol por defecto (ajustado a la nueva estructura)
-
-        return usuarioRepository.save(newUser);
+    public List<Usuario> findAll() {
+        return usuarioRepository.findAll();
     }
 
-    public void createAdminUserIfNotExists() {
-        if (usuarioRepository.findByUsername("admin").isEmpty()) {
-            Usuario admin = new Usuario();
-            admin.setEmail("admin@hola.com");  
-            admin.setUsername("admin");
-            admin.setPassword(passwordEncoder.encode("admin123"));
-            admin.setRole(Role.ADMIN); // Rol ADMIN (ajustado a la nueva estructura)
-            usuarioRepository.save(admin);
-            System.out.println("Usuario ADMIN inicial creado con password 'admin123'.");
+    public Usuario findById(Long id) {
+        return usuarioRepository.findById(id).orElseThrow();
+    }
+
+    public Usuario create(Usuario usuario) {
+        // Forzar rol cliente
+        usuario.setRol(Role.USER);
+
+        // Hashear password antes de guardar
+        usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+
+        if (usuarioRepository.existsByEmail(usuario.getEmail())) {
+           throw new RuntimeException("Email ya registrado");
         }
+
+        return usuarioRepository.save(usuario);
+    }
+
+    public Usuario update(Long id, Usuario cambios) {
+        Usuario u = usuarioRepository.findById(id).orElseThrow();
+        u.setNombre(cambios.getNombre());
+        u.setEmail(cambios.getEmail());
+
+        if (cambios.getPassword() != null && !cambios.getPassword().isBlank()) {
+            u.setPassword(passwordEncoder.encode(cambios.getPassword()));
+        }
+
+        return usuarioRepository.save(u);
+    }
+
+    public void delete(Long id) {
+        usuarioRepository.deleteById(id);
     }
 }
