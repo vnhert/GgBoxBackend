@@ -7,7 +7,7 @@ import com.service.CarritoService;
 @RestController
 @RequestMapping("/api/carritos")
 @CrossOrigin(origins = {
-        "http://3.227.171.106",
+        "http://54.86.25.1",
         "http://localhost:5173"
 })
 public class CarritoController {
