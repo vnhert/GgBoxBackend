@@ -37,7 +37,7 @@ public class CarritoService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Usuario no encontrado"));
 
-        return carritoRepository.findByUserId(usuarioId)
+        return carritoRepository.findByUsuarioId(usuarioId)
                 .orElseGet(() -> {
                     Carrito nuevo = new Carrito();
                     nuevo.setUsuario(usuario);
