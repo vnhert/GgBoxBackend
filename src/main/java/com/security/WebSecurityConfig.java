@@ -9,6 +9,11 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+// IMPORT NECESARIO PARA WebSecurityCustomizer
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+// IMPORT NECESARIO PARA WebSecurityCustomizer
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
 
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -26,10 +31,23 @@ public class WebSecurityConfig {
     private final AuthenticationProvider authenticationProvider;
 
     public WebSecurityConfig(JwtAuthenticationFilter jwtAuthFilter,
-                          AuthenticationProvider authenticationProvider) {
+                             AuthenticationProvider authenticationProvider) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.authenticationProvider = authenticationProvider;
     }
+
+    // =================================================================
+    // SOLUCIÓN: IGNORAR FILTRO DE SEGURIDAD PARA RUTAS ESTÁTICAS DE SWAGGER
+    // =================================================================
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web) -> web.ignoring()
+                // Ignora el filtro para todos los archivos estáticos de Swagger UI
+                .requestMatchers(new AntPathRequestMatcher("/swagger-ui/**"))
+                // Ignora el filtro para el archivo de definición de la API (JSON)
+                .requestMatchers(new AntPathRequestMatcher("/v3/api-docs/**"));
+    }
+    // =================================================================
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -57,7 +75,11 @@ public class WebSecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
+                        
+                        // NOTA: Estas líneas son redundantes, pero se dejan para claridad.
+                        // La exclusión real la hace webSecurityCustomizer
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**","/swagger-ui.html").permitAll()
+                        
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Auth público SOLO login
@@ -71,7 +93,7 @@ public class WebSecurityConfig {
 
                         // ADMIN: modificar catálogo
                         .requestMatchers(HttpMethod.POST, "/api/productos/**", "/api/categorias/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT,  "/api/productos/**", "/api/categorias/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/productos/**", "/api/categorias/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE,"/api/productos/**", "/api/categorias/**").hasRole("ADMIN")
 
                         // registro público
